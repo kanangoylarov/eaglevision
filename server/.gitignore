@@ -1,0 +1,25 @@
+node_modules/
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Prisma
+prisma/*.db
+prisma/*.db-journal
+
+# ML
+ml/__pycache__/
+ml/*.pth
+ml/*.pt
+ml/.venv/
+ml/venv/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
