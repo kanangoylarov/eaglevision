@@ -37,18 +37,17 @@ async function submit() {
 </script>
 
 <template>
-  <div class="auth-wrap" style="min-height:100dvh; display:grid; place-items:center; padding:1rem;">
-    <div style="width:100%; max-width:900px;">
-      <div style="display:grid; grid-template-columns:1fr; gap:2rem; align-items:start;">
-        <div class="auth-intro" style="color:var(--text);">
-          <div style="font-size:.95rem; font-weight:600; color:var(--accent); margin-bottom:.5rem; letter-spacing:0.025em; text-transform:uppercase;">Get Started</div>
-          <h1 style="font-family:'Manrope', sans-serif; font-size:2.5rem; font-weight:800; margin:0 0 .5rem 0; letter-spacing:-0.025em; line-height:1.1;">Join the movement</h1>
-          <p style="font-size:1.125rem; color:var(--muted); margin:0; line-height:1.6;">Smart transportation insights at your fingertips</p>
-        </div>
-        <Card class="auth-card" style="max-width:420px; justify-self:start; width:100%;">
+  <div class="auth-wrap">
+    <div class="auth-layout">
+      <div class="auth-intro">
+        <div class="auth-eyebrow">Get Started</div>
+        <h1 class="auth-title">Join the movement</h1>
+        <p class="auth-subtitle">Smart transportation insights at your fingertips</p>
+      </div>
+      <Card class="auth-card">
           <template #title>
             <div class="brand">
-              <div class="brand-logo">M</div>
+              <img src="/logo.png" alt="EagleVision" class="brand-logo-img" />
               <span>Metro Density</span>
             </div>
           </template>
@@ -81,8 +80,7 @@ async function submit() {
             <span class="muted">Already have an account? </span>
             <router-link to="/signin" style="color:var(--accent); font-weight:600; text-decoration:none;">Sign in</router-link>
           </template>
-        </Card>
-      </div>
+      </Card>
     </div>
   </div>
 </template>

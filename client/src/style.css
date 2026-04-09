@@ -146,9 +146,63 @@ body {
   min-height: 100dvh;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: clamp(1rem, 3vw, 2rem);
 }
-.auth-card { width: 100%; max-width: 420px; }
+
+.auth-layout {
+  width: 100%;
+  max-width: 1060px;
+  display: grid;
+  gap: clamp(1.5rem, 4vw, 3rem);
+  align-items: center;
+}
+
+.auth-intro {
+  color: var(--text);
+  max-width: 34rem;
+  margin-inline: auto;
+  text-align: center;
+}
+
+.auth-eyebrow {
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--accent);
+  margin-bottom: .5rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.auth-title {
+  font-family: 'Manrope', sans-serif;
+  font-size: clamp(2rem, 5vw, 2.75rem);
+  font-weight: 800;
+  margin: 0 0 .5rem 0;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+}
+
+.auth-subtitle {
+  font-size: clamp(1rem, 2vw, 1.125rem);
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.6;
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  justify-self: center;
+}
+
+@media (min-width: 980px) {
+  .auth-layout { grid-template-columns: 1.05fr .95fr; }
+  .auth-intro {
+    margin-inline: 0;
+    text-align: left;
+  }
+  .auth-card { justify-self: end; }
+}
 
 .brand {
   display: flex;
@@ -157,11 +211,6 @@ body {
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--text);
-}
-.brand-logo {
-  width: 32px; height: 32px; border-radius: 8px;
-  background: var(--accent);
-  display: grid; place-items: center; color: white; font-weight: 800;
 }
 .brand-logo-img {
   width: 36px; height: 36px; border-radius: 50%; object-fit: cover;

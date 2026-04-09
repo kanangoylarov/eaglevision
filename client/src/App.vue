@@ -37,7 +37,7 @@ const isAuthPage = computed(() => ["/signin", "/signup"].includes(route.path));
       <Menubar :model="items" class="border-noround">
         <template #start>
           <div class="brand" style="margin-right: 1rem;">
-            <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" />
+            <img src="/logo.png" alt="EagleVision" class="brand-logo-img" />
             <span class="hidden md:inline">EagleVision</span>
           </div>
         </template>
