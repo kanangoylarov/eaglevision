@@ -3,4 +3,9 @@
 *.jpg binary
 *.svg binary
 *.pth binary
+*.npy binary
+*.txt binary
+*.pkl binary
+*.pt binary
 *.mp4 binary
+*.jpeg binary

@@ -33,9 +33,9 @@ async function submit() {
   <div class="auth-wrap">
     <Card class="auth-card">
       <template #title>
-        <div class="brand">
-          <div class="brand-logo">M</div>
-          <span>Metro Density</span>
+        <div class="brand" style="justify-content:center;">
+          <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" style="width:48px;height:48px;" />
+          <span>EagleVision</span>
         </div>
       </template>
       <template #subtitle>Sign in to your account</template>

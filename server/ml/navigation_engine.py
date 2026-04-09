@@ -106,14 +106,17 @@ class DataFusion:
         self.node_history = {}
 
     def get_grid_reading(self, node_id, hour_idx):
-        """Read congestion from grid data for a node."""
+        """Read congestion from grid data for a node (5x5 area average)."""
         info = NODES.get(node_id)
         if not info:
             return 0, 0
         _, _, _, r, c, cap = info
         idx = max(0, min(hour_idx, len(grid_data) - 1))
-        density = float(grid_data[idx, 0, r, c])
-        count = int(density * cap)
+        # Read 4x4 area around intersection — balanced between hotspot and surroundings
+        r1, r2 = max(0, r - 2), min(32, r + 2)
+        c1, c2 = max(0, c - 2), min(32, c + 2)
+        density = float(grid_data[idx, 0, r1:r2, c1:c2].mean())
+        count = int(density * cap * 0.55)
         return count, density
 
     def build_features(self, node_id, hour_idx=None):
@@ -221,11 +224,11 @@ class DecisionEngine:
                 trend = "stable"
 
             # Status
-            if forecast_1h > 70:
+            if forecast_1h > 62:
                 status = "CONGESTED"
-            elif forecast_1h > 50:
+            elif forecast_1h > 45:
                 status = "HEAVY"
-            elif forecast_1h > 25:
+            elif forecast_1h > 20:
                 status = "NORMAL"
             else:
                 status = "FREE_FLOW"
@@ -242,17 +245,19 @@ class DecisionEngine:
             }
 
 
-# ─── RoutingEngine (A* with time-dependent costs) ───
+# ─── RoutingEngine (A* with time-dependent costs + metro crowd awareness) ───
 
 class RoutingEngine:
-    def __init__(self, decision):
+    def __init__(self, decision, fusion):
         self.decision = decision
+        self.fusion = fusion
         self.graph = {}
         for a, b, base_time, dist, mode, road in EDGES:
             self.graph.setdefault(a, []).append({"to": b, "base_time": base_time, "distance": dist, "mode": mode, "road": road})
             self.graph.setdefault(b, []).append({"to": a, "base_time": base_time, "distance": dist, "mode": mode, "road": road})
 
-    def get_dynamic_cost(self, node_id, edge):
+    def get_dynamic_cost(self, node_id, edge, hour_offset=0):
+        """Calculate travel cost considering congestion, metro crowds, and time."""
         base = edge["base_time"]
         mode = edge["mode"]
         state = self.decision.node_states.get(node_id)
@@ -263,24 +268,69 @@ class RoutingEngine:
         forecast = state["forecast_1h"]
         trend = state["trend"]
 
-        if forecast > 85:
-            mult = 3.0
-        elif forecast > 70:
-            mult = 2.0
-        elif forecast > 50:
-            mult = 1.5
+        # Road congestion multiplier
+        if mode == "road":
+            if forecast > 62:
+                mult = 2.5
+            elif forecast > 45:
+                mult = 1.8
+            elif forecast > 20:
+                mult = 1.2
+            else:
+                mult = 1.0
+        # Metro: crowd affects wait time and comfort
+        elif mode == "metro":
+            if forecast > 62:
+                mult = 1.6  # very crowded metro — longer boarding, waiting
+            elif forecast > 45:
+                mult = 1.3
+            else:
+                mult = 1.0
+
+        # Trend adjustment
+        if trend == "increasing":
+            mult += 0.2
+        elif trend == "decreasing":
+            mult -= 0.15
+
+        return base * max(mult, 1.0)
+
+    def get_future_cost(self, node_id, edge, future_hours=1):
+        """Estimate cost if departing later (using future grid data)."""
+        from datetime import datetime
+        future_idx = 24 + datetime.now().hour + future_hours
+        future_idx = max(0, min(future_idx, len(grid_data) - 1))
+
+        info = NODES.get(node_id)
+        if not info:
+            return edge["base_time"]
+
+        _, _, mode, r, c, cap = info
+        r1, r2 = max(0, r - 2), min(32, r + 2)
+        c1, c2 = max(0, c - 2), min(32, c + 2)
+        future_density = float(grid_data[future_idx, 0, r1:r2, c1:c2].mean())
+
+        base = edge["base_time"]
+        if mode == "road":
+            if future_density > 0.5:
+                mult = 2.5
+            elif future_density > 0.3:
+                mult = 1.8
+            elif future_density > 0.1:
+                mult = 1.2
+            else:
+                mult = 1.0
+        elif mode == "metro":
+            if future_density > 0.5:
+                mult = 1.6
+            elif future_density > 0.3:
+                mult = 1.3
+            else:
+                mult = 1.0
         else:
             mult = 1.0
 
-        if trend == "increasing":
-            mult += 0.3
-        elif trend == "decreasing":
-            mult -= 0.2
-
-        if mode == "metro":
-            mult = 1.0 + (mult - 1.0) * 0.2
-
-        return base * max(mult, 1.0)
+        return base * mult
 
     def heuristic(self, a, b):
         if a not in NODES or b not in NODES:
@@ -290,7 +340,7 @@ class RoutingEngine:
         dist = ((lat1 - lat2) ** 2 + (lon1 - lon2) ** 2) ** 0.5 * 111
         return dist / 30 * 60
 
-    def find_route(self, start, end):
+    def find_route(self, start, end, use_future=False, future_hours=0):
         queue = [(0, 0, start, [start], [])]
         visited = {}
 
@@ -310,7 +360,10 @@ class RoutingEngine:
 
             for edge in self.graph.get(node, []):
                 nxt = edge["to"]
-                dc = self.get_dynamic_cost(nxt, edge)
+                if use_future:
+                    dc = self.get_future_cost(nxt, edge, future_hours)
+                else:
+                    dc = self.get_dynamic_cost(nxt, edge)
                 new_cost = cost + dc
                 h = self.heuristic(nxt, end)
                 heapq.heappush(queue, (
@@ -324,47 +377,106 @@ class RoutingEngine:
         for edge in route.get("edges", []):
             state = self.decision.node_states.get(edge["to"], {})
             f = state.get("forecast_1h", 0)
-            if f > 80: risk += 3
-            elif f > 60: risk += 2
-            elif f > 40: risk += 1
+            if f > 62: risk += 3
+            elif f > 45: risk += 2
+            elif f > 20: risk += 1
         return min(risk, 10)
 
     def find_multimodal(self, start, end):
         routes = []
 
-        # Road-only route
+        # === Option 1: Drive now ===
         road_route = self.find_route(start, end)
         if road_route:
             road_route["type"] = "road"
-            road_route["label"] = "Drive"
+            road_route["label"] = "Drive Now"
+            road_route["departIn"] = 0
             road_route["risk"] = self.calculate_risk(road_route)
             road_route["reliability"] = max(100 - road_route["risk"] * 10, 20)
             road_route["roads"] = list(dict.fromkeys(e["road"] for e in road_route["edges"] if e["road"] != "walk"))
+            road_route["reason"] = self._explain_road(road_route)
             routes.append(road_route)
 
-        # Metro-assisted route
+        # === Option 2: Metro now ===
         metro_nodes = [n for n, info in NODES.items() if info[2] == "metro"]
-        best_metro = None
+        best_metro = self._find_best_metro(start, end, metro_nodes, use_future=False)
+        if best_metro:
+            best_metro["label"] = "Metro Now"
+            best_metro["departIn"] = 0
+            best_metro["reason"] = self._explain_metro(best_metro)
+            routes.append(best_metro)
+
+        # === Option 3: Wait & Metro (if metro is currently crowded but will ease) ===
+        metro_states = {n: self.decision.node_states.get(n, {}) for n in metro_nodes}
+        any_metro_crowded = any(s.get("forecast_1h", 0) > 50 for s in metro_states.values())
+        any_metro_decreasing = any(s.get("trend") == "decreasing" for s in metro_states.values())
+
+        if any_metro_crowded and any_metro_decreasing:
+            future_metro = self._find_best_metro(start, end, metro_nodes, use_future=True, future_hours=1)
+            if future_metro and (not best_metro or future_metro["totalTime"] + 15 < best_metro["totalTime"] + 5):
+                future_metro["label"] = "Wait 15min + Metro"
+                future_metro["departIn"] = 15
+                future_metro["totalTime"] = round(future_metro["totalTime"] + 15, 1)
+                future_metro["reason"] = "Metro is crowded now but easing — wait 15min for less crowded ride"
+                routes.append(future_metro)
+
+        # === Option 4: Wait & Drive (if roads are congested but easing) ===
+        road_states = {n: self.decision.node_states.get(n, {}) for n in self.decision.node_states if self.decision.node_states[n]["mode"] == "road"}
+        avg_road_forecast = np.mean([s["forecast_1h"] for s in road_states.values()]) if road_states else 0
+        any_road_decreasing = any(s.get("trend") == "decreasing" for s in road_states.values())
+
+        if avg_road_forecast > 50 and any_road_decreasing:
+            future_road = self.find_route(start, end, use_future=True, future_hours=1)
+            if future_road and road_route and future_road["totalTime"] + 20 < road_route["totalTime"]:
+                future_road["type"] = "road"
+                future_road["label"] = "Wait 20min + Drive"
+                future_road["departIn"] = 20
+                future_road["totalTime"] = round(future_road["totalTime"] + 20, 1)
+                future_road["risk"] = max(0, self.calculate_risk(future_road) - 2)
+                future_road["reliability"] = max(100 - future_road["risk"] * 10, 20)
+                future_road["roads"] = list(dict.fromkeys(e["road"] for e in future_road["edges"] if e["road"] != "walk"))
+                future_road["reason"] = "Traffic is heavy but easing — waiting 20min will save time"
+                routes.append(future_road)
+
+        # Sort and rank
+        routes.sort(key=lambda r: r["totalTime"])
+        for i, r in enumerate(routes):
+            r["rank"] = i + 1
+
+        # Add recommendation
+        if routes:
+            best = routes[0]
+            recommendation = f"Take '{best['label']}' — {best['totalTime']} min"
+            if best.get("departIn", 0) > 0:
+                recommendation += f" (depart in {best['departIn']} min)"
+            if len(routes) > 1 and routes[1]["totalTime"] - best["totalTime"] < 3:
+                recommendation += f". '{routes[1]['label']}' is also good ({routes[1]['totalTime']} min)"
+        else:
+            recommendation = "No route found"
+
+        return routes, recommendation
+
+    def _find_best_metro(self, start, end, metro_nodes, use_future=False, future_hours=0):
+        best = None
         best_time = float("inf")
 
         for ms in metro_nodes:
             for me in metro_nodes:
                 if ms == me:
                     continue
-                leg1 = self.find_route(start, ms)
-                leg2 = self.find_route(ms, me)
-                leg3 = self.find_route(me, end)
+                leg1 = self.find_route(start, ms, use_future, future_hours)
+                leg2 = self.find_route(ms, me, use_future, future_hours)
+                leg3 = self.find_route(me, end, use_future, future_hours)
                 if leg1 and leg2 and leg3:
                     total = leg1["totalTime"] + leg2["totalTime"] + leg3["totalTime"]
                     if total < best_time:
                         best_time = total
-                        best_metro = {
+                        best = {
                             "path": leg1["path"] + leg2["path"][1:] + leg3["path"][1:],
                             "edges": leg1["edges"] + leg2["edges"] + leg3["edges"],
                             "totalTime": round(total, 1),
                             "totalDistance": round(leg1["totalDistance"] + leg2["totalDistance"] + leg3["totalDistance"], 1),
                             "type": "multimodal",
-                            "label": "Metro + Walk",
                             "legs": [
                                 {"mode": "walk", "time": round(leg1["totalTime"], 1), "to": DISPLAY_NAMES.get(ms, ms)},
                                 {"mode": "metro", "time": round(leg2["totalTime"], 1), "from": DISPLAY_NAMES.get(ms, ms), "to": DISPLAY_NAMES.get(me, me)},
@@ -372,33 +484,49 @@ class RoutingEngine:
                             ],
                             "roads": [],
                         }
+        if best:
+            best["risk"] = self.calculate_risk(best)
+            best["reliability"] = max(100 - best["risk"] * 10, 20)
+        return best
 
-        if best_metro:
-            best_metro["risk"] = self.calculate_risk(best_metro)
-            best_metro["reliability"] = max(100 - best_metro["risk"] * 10, 20)
-            routes.append(best_metro)
+    def _explain_road(self, route):
+        congested = sum(1 for e in route["edges"] if self.decision.node_states.get(e["to"], {}).get("status") == "CONGESTED")
+        if congested > 2:
+            return f"Heavy traffic on route — {congested} congested segments"
+        elif congested > 0:
+            return f"Moderate traffic — {congested} congested spot(s)"
+        return "Roads are clear — fastest option"
 
-        routes.sort(key=lambda r: r["totalTime"])
-        for i, r in enumerate(routes):
-            r["rank"] = i + 1
-
-        return routes
+    def _explain_metro(self, route):
+        metro_edges = [e for e in route["edges"] if e["mode"] == "metro"]
+        if not metro_edges:
+            return "Metro route available"
+        metro_states = [self.decision.node_states.get(e["to"], {}) for e in metro_edges]
+        avg_forecast = np.mean([s.get("forecast_1h", 0) for s in metro_states]) if metro_states else 0
+        if avg_forecast > 60:
+            return "Metro is crowded — expect standing room only"
+        elif avg_forecast > 40:
+            return "Metro is moderately busy"
+        return "Metro is comfortable — seats likely available"
 
 
 # ─── Initialize Pipeline ───
 
 fusion = DataFusion()
 decision = DecisionEngine(fusion)
-router = RoutingEngine(decision)
+router = RoutingEngine(decision, fusion)
 
 
 def do_route(start, end):
     decision.update_all()
-    # Map old keys to new node ids
     start = OLD_KEY_MAP.get(start, start)
     end = OLD_KEY_MAP.get(end, end)
-    routes = router.find_multimodal(start, end)
-    return {"routes": routes, "nodeStates": {k: v for k, v in decision.node_states.items()}}
+    routes, recommendation = router.find_multimodal(start, end)
+    return {
+        "routes": routes,
+        "recommendation": recommendation,
+        "nodeStates": {k: v for k, v in decision.node_states.items()},
+    }
 
 
 def do_status():

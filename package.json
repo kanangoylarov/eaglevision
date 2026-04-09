@@ -1,0 +1,14 @@
+{
+  "name": "eaglevision",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "build": "cd client && npm run build && cd ../server && npx prisma generate",
+    "start": "cd server && node server.js",
+    "dev": "cd server && npm run dev"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
