@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg"],
       manifest: {
-        name: "Baku Metro Density",
-        short_name: "Metro",
-        description: "Real-time crowd density monitoring for the Baku metro",
+        name: "EagleVision",
+        short_name: "EagleVision",
+        description: "Real-time metro & traffic monitoring for Baku",
         theme_color: "#0ea5e9",
         background_color: "#0f172a",
         display: "standalone",

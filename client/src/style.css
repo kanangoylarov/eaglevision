@@ -53,11 +53,14 @@ body {
 }
 .grid.cols-2 { grid-template-columns: 1fr; }
 .grid.cols-3 { grid-template-columns: 1fr; }
+.grid.cols-4 { grid-template-columns: 1fr; }
 @media (min-width: 640px) {
   .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 900px) {
   .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
 }
 
 .stat {

@@ -12,15 +12,19 @@ import SelectButton from "primevue/selectbutton";
 import Select from "primevue/select";
 
 const toast = useToast();
-const target = ref("train");
+
+const target = ref("road");
 const targetOptions = [
+  { label: "Road", value: "road" },
   { label: "Train", value: "train" },
   { label: "Station", value: "station" },
 ];
 
 const trainCode = ref("T-101");
 const stationId = ref(null);
+const roadId = ref(null);
 const stations = ref([]);
+const roads = ref([]);
 
 const file = ref(null);
 const result = ref(null);
@@ -29,8 +33,9 @@ const fileUpload = useTemplateRef("fileUpload");
 
 onMounted(async () => {
   try {
-    const { data } = await api.get("/stations");
-    stations.value = data;
+    const [s, r] = await Promise.all([api.get("/stations"), api.get("/roads")]);
+    stations.value = s.data;
+    roads.value = r.data;
   } catch {}
 });
 
@@ -38,25 +43,20 @@ function onSelect(event) {
   file.value = event.files?.[0] || null;
 }
 
-function densitySeverity(ai) {
-  if (!ai) return "secondary";
-  if (ai.includes("high")) return "danger";
-  if (ai.includes("medium")) return "warn";
-  if (ai.includes("low")) return "success";
-  return "info";
+function statusSeverity(status) {
+  if (!status) return "secondary";
+  if (status === "CONGESTED") return "danger";
+  if (status === "HEAVY") return "warn";
+  if (status === "NORMAL") return "info";
+  if (status === "FREE_FLOW") return "success";
+  if (status.includes("high")) return "danger";
+  if (status.includes("medium")) return "warn";
+  return "success";
 }
 
 async function submit() {
   if (!file.value) {
     toast.add({ severity: "warn", summary: "No file", detail: "Choose a video or image first", life: 3000 });
-    return;
-  }
-  if (target.value === "train" && !trainCode.value) {
-    toast.add({ severity: "warn", summary: "Missing", detail: "Train code required", life: 3000 });
-    return;
-  }
-  if (target.value === "station" && !stationId.value) {
-    toast.add({ severity: "warn", summary: "Missing", detail: "Pick a station", life: 3000 });
     return;
   }
 
@@ -66,13 +66,33 @@ async function submit() {
     const form = new FormData();
     form.append("file", file.value);
     let url;
-    if (target.value === "train") {
+
+    if (target.value === "road") {
+      if (!roadId.value) {
+        toast.add({ severity: "warn", summary: "Missing", detail: "Pick a road", life: 3000 });
+        loading.value = false;
+        return;
+      }
+      form.append("roadId", roadId.value);
+      url = "/roads/analyze";
+    } else if (target.value === "train") {
+      if (!trainCode.value) {
+        toast.add({ severity: "warn", summary: "Missing", detail: "Train code required", life: 3000 });
+        loading.value = false;
+        return;
+      }
       form.append("trainCode", trainCode.value);
       url = "/trains/analyze";
     } else {
+      if (!stationId.value) {
+        toast.add({ severity: "warn", summary: "Missing", detail: "Pick a station", life: 3000 });
+        loading.value = false;
+        return;
+      }
       form.append("stationId", stationId.value);
       url = "/stations/analyze";
     }
+
     const { data } = await api.post(url, form, {
       headers: { "Content-Type": "multipart/form-data" },
     });
@@ -96,19 +116,35 @@ async function submit() {
 <template>
   <div class="container">
     <h1 class="page-title">Analyze</h1>
-    <p class="muted" style="margin-top:-.5rem;">Upload footage to detect crowd density</p>
+    <p class="muted" style="margin-top:-.5rem;">Upload footage for AI analysis</p>
 
     <Card style="margin-top:1rem;">
       <template #content>
         <div style="display:flex; flex-direction:column; gap:1rem;">
           <SelectButton v-model="target" :options="targetOptions" optionLabel="label" optionValue="value" />
 
+          <!-- Road -->
+          <div v-if="target === 'road'">
+            <label class="muted">Road</label>
+            <Select
+              v-model="roadId"
+              :options="roads"
+              optionLabel="name"
+              optionValue="id"
+              placeholder="Select a road"
+              filter
+              fluid
+            />
+          </div>
+
+          <!-- Train -->
           <div v-if="target === 'train'">
             <label class="muted">Train code</label>
             <InputText v-model="trainCode" placeholder="T-101" fluid />
           </div>
 
-          <div v-else>
+          <!-- Station -->
+          <div v-if="target === 'station'">
             <label class="muted">Station</label>
             <Select
               v-model="stationId"
@@ -147,10 +183,36 @@ async function submit() {
       </template>
     </Card>
 
+    <!-- Result -->
     <Card v-if="result" style="margin-top:1rem;">
       <template #title>Result</template>
       <template #content>
-        <div class="grid cols-2">
+        <!-- Road result -->
+        <div v-if="result.target === 'road'" class="grid cols-2">
+          <div class="stat">
+            <div class="label">Road</div>
+            <div class="value" style="font-size:1.4rem;">{{ result.road.name }}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Route</div>
+            <div style="font-size:1rem;">{{ result.road.fromPoint }} → {{ result.road.toPoint }}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Vehicles</div>
+            <div class="value" style="color:#fb923c;">{{ result.road.vehicleCount }}</div>
+          </div>
+          <div class="stat">
+            <div class="label">Coverage</div>
+            <div class="value" style="font-size:1.2rem;">{{ result.road.coverage }}%</div>
+          </div>
+          <div class="stat">
+            <div class="label">Status</div>
+            <Tag :severity="statusSeverity(result.road.status)" :value="result.road.status.replace('_', ' ')" style="font-size:.95rem;" />
+          </div>
+        </div>
+
+        <!-- Metro result -->
+        <div v-else class="grid cols-2">
           <div class="stat" v-if="result.target === 'train'">
             <div class="label">Train</div>
             <div class="value" style="font-size:1.4rem;">{{ result.train.trainCode }}</div>
@@ -169,17 +231,11 @@ async function submit() {
           </div>
           <div class="stat">
             <div class="label">Density</div>
-            <div>
-              <Tag
-                :severity="densitySeverity((result.train || result.station).aiResult)"
-                :value="(result.train || result.station).aiResult"
-                style="font-size:.95rem;"
-              />
-            </div>
-          </div>
-          <div v-if="result.prediction.framesAnalyzed" class="stat">
-            <div class="label">Frames analyzed</div>
-            <div class="value" style="font-size:1.2rem;">{{ result.prediction.framesAnalyzed }}</div>
+            <Tag
+              :severity="statusSeverity((result.train || result.station).aiResult)"
+              :value="(result.train || result.station).aiResult"
+              style="font-size:.95rem;"
+            />
           </div>
         </div>
       </template>

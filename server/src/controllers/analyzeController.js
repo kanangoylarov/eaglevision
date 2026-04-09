@@ -1,6 +1,7 @@
 import * as mlService from "../services/mlService.js";
 import * as trainService from "../services/trainService.js";
 import * as stationService from "../services/stationService.js";
+import * as roadService from "../services/roadService.js";
 
 function detectVideo(file) {
   return (
@@ -9,52 +10,18 @@ function detectVideo(file) {
   );
 }
 
-async function runPrediction(file) {
-  const isVideo = detectVideo(file);
-  return isVideo
-    ? mlService.predictVideoDensity(file.buffer, file.originalname)
-    : mlService.predictDensity(file.buffer, file.originalname);
-}
-
-export async function analyzeTrain(req, res, next) {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ error: "file is required (image or video)" });
-    }
-    const { trainCode } = req.body;
-    if (!trainCode) {
-      return res.status(400).json({ error: "trainCode is required" });
-    }
-
-    const prediction = await runPrediction(req.file);
-    const train = await trainService.upsert({
-      trainCode,
-      humanCount: prediction.humanCount,
-      aiResult: prediction.aiResult,
-    });
-
-    res.json({ train, prediction });
-  } catch (err) {
-    if (err.response) {
-      return res
-        .status(err.response.status || 502)
-        .json({ error: "ML service error", detail: err.response.data });
-    }
-    next(err);
-  }
-}
-
+// --- Metro: station analysis ---
 export async function analyzeStation(req, res, next) {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "file is required (image or video)" });
-    }
+    if (!req.file) return res.status(400).json({ error: "file is required" });
     const { stationId, stationName } = req.body;
-    if (!stationId && !stationName) {
-      return res.status(400).json({ error: "stationId or stationName is required" });
-    }
+    if (!stationId && !stationName) return res.status(400).json({ error: "stationId or stationName is required" });
 
-    const prediction = await runPrediction(req.file);
+    const isVideo = detectVideo(req.file);
+    const prediction = isVideo
+      ? await mlService.predictVideoDensity(req.file.buffer, req.file.originalname)
+      : await mlService.predictDensity(req.file.buffer);
+
     const station = await stationService.updateDensity({
       stationId: stationId ? Number(stationId) : undefined,
       stationName,
@@ -64,11 +31,57 @@ export async function analyzeStation(req, res, next) {
 
     res.json({ station, prediction });
   } catch (err) {
-    if (err.response) {
-      return res
-        .status(err.response.status || 502)
-        .json({ error: "ML service error", detail: err.response.data });
-    }
+    next(err);
+  }
+}
+
+// --- Metro: train analysis ---
+export async function analyzeTrain(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ error: "file is required" });
+    const { trainCode } = req.body;
+    if (!trainCode) return res.status(400).json({ error: "trainCode is required" });
+
+    const isVideo = detectVideo(req.file);
+    const prediction = isVideo
+      ? await mlService.predictVideoDensity(req.file.buffer, req.file.originalname)
+      : await mlService.predictDensity(req.file.buffer);
+
+    const train = await trainService.upsert({
+      trainCode,
+      humanCount: prediction.humanCount,
+      aiResult: prediction.aiResult,
+    });
+
+    res.json({ train, prediction });
+  } catch (err) {
+    next(err);
+  }
+}
+
+// --- Traffic: road analysis ---
+export async function analyzeRoad(req, res, next) {
+  try {
+    if (!req.file) return res.status(400).json({ error: "file is required" });
+    const { roadId, roadName } = req.body;
+    if (!roadId && !roadName) return res.status(400).json({ error: "roadId or roadName is required" });
+
+    const isVideo = detectVideo(req.file);
+    const prediction = isVideo
+      ? await mlService.predictTrafficVideo(req.file.buffer, req.file.originalname)
+      : await mlService.predictTraffic(req.file.buffer);
+
+    const road = await roadService.updateTraffic({
+      roadId: roadId ? Number(roadId) : undefined,
+      roadName,
+      vehicleCount: prediction.vehicleCount,
+      coverage: prediction.coverage ?? prediction.avgCoverage ?? 0,
+      status: prediction.status,
+      aiResult: prediction.aiResult,
+    });
+
+    res.json({ road, prediction });
+  } catch (err) {
     next(err);
   }
 }

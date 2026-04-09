@@ -36,3 +36,16 @@ model Train {
   currentStation   Station  @relation(fields: [currentStationId], references: [id])
   updatedAt        DateTime @updatedAt
 }
+
+model Road {
+  id           Int      @id @default(autoincrement())
+  name         String   @unique
+  fromPoint    String
+  toPoint      String
+  distanceKm   Float    @default(0)
+  vehicleCount Int      @default(0)
+  coverage     Float    @default(0)
+  status       String   @default("FREE_FLOW")
+  aiResult     String   @default("")
+  updatedAt    DateTime @default(now()) @updatedAt
+}
