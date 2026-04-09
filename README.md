@@ -1,198 +1,352 @@
-# EagleVision — Metro Intelligence Platform
+# EagleVision — AI-Powered Urban Traffic & Transit Intelligence Platform
 
-> Real-time passenger congestion detection and ML-powered travel time recommendations for the Bakı Metropoliteni.
+> Real-time multimodal navigation system for Baku that combines computer vision, deep learning forecasting, and intelligent routing to optimize urban mobility across roads and metro.
 
-Built for the **Data-Driven Solutions Hackathon 2026**.
+**Live Demo:** [http://167.172.145.17](http://167.172.145.17)
 
 ---
 
-## What It Does
+## The Problem
 
-BakıMove addresses a real gap in Baku's transit infrastructure: passengers have no way to know how crowded a metro station, train, or bus is before they arrive — and no tool to plan routes that balance speed, comfort, and transfers. We solve this with five components working together:
+Baku faces growing urban mobility challenges: commuters have no way to know real-time road congestion or metro crowd levels, and no tool exists that can recommend whether to drive or take the metro based on current and predicted conditions. Traditional navigation apps treat roads and public transit as separate systems.
 
-**1. Congestion Detection (Computer Vision)**
-Camera feeds from metro station platforms, inside metro wagons, bus interiors, and station waiting areas are processed in real time using YOLOv8-nano to count passengers and estimate density. Inference runs on edge hardware — no raw video leaves the premises.
+## Our Solution
 
-**2. Web Scraper — External Context Engine**
-A scraper module continuously collects real-world context that affects transit demand: upcoming events (concerts, football matches, public holidays), weather forecasts, and calendar metadata (date, time, day of week, Ramadan, school term). This data feeds directly into the ML model as input features, improving prediction accuracy beyond what historical ridership alone can achieve.
+EagleVision is a **full-stack AI platform** that unifies road traffic analysis and metro crowd detection into a single intelligent navigation system. It uses **5 ML models working in a pipeline** to detect current conditions, predict future congestion, and recommend optimal multimodal routes (drive vs. metro+walk) in real-time.
 
-**3. ML Prediction Framework**
-An ensemble of ML models powered by scraper-enriched features:
-- **Congestion predictor** — predicts platform/wagon load for any station at any time, factoring in weather, events, and historical patterns.
-- **Travel time predictor** — estimates travel time between any two nodes in the network based on current conditions, time of day, and external factors from the scraper.
-- **Best-time-to-board advisor** — recommends the optimal departure time AND which transport mode to take (metro vs. bus) to minimise congestion exposure.
+---
 
-**4. Multi-Criteria Route Planner**
-Directions to any destination with user-selectable routing modes:
-- **Fastest path** — minimises total travel time
-- **Ease path** — minimises congestion exposure (least crowded route)
-- **Least transfers** — minimises the number of line changes / mode switches
-- **Most walking** — maximises walking segments (for users who prefer to walk parts of the route)
-- Routes can combine metro + bus segments when beneficial.
+## System Architecture
 
-**5. Real-Time Dashboard**
-A React frontend with Live Feed (CV detections), Route Planner (multi-criteria directions), and Station Intel (ranked congestion across all stations).
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        DATA SOURCES                             │
+│  Camera Feeds (roads) ──→ YOLO v8   (vehicle detection)        │
+│  Camera Feeds (metro) ──→ CSRNet    (crowd density)            │
+│  Historical Grid Data ──→ ConvLSTM  (3h congestion forecast)   │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│                      DATA FUSION LAYER                          │
+│  Combines YOLO counts + grid density + temporal features        │
+│  Builds 33-feature vectors per intersection (lag features,      │
+│  calendar, weather, neighbor data, cross features)              │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│                    DECISION ENGINE                               │
+│  LightGBM ──→ 1-hour congestion forecast per node (road+metro) │
+│  Anomaly detection + trend analysis (increasing/decreasing)     │
+│  Status classification: FREE_FLOW → NORMAL → HEAVY → CONGESTED │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│                 MULTIMODAL ROUTING ENGINE                        │
+│  Time-dependent A* algorithm with dynamic edge costs            │
+│  Options: Drive Now | Metro Now | Wait+Metro | Wait+Drive       │
+│  Considers: road congestion, metro crowds, trend forecasts      │
+│  Outputs: optimal route + risk score + reliability + reasoning  │
+└──────────────────────────────┬──────────────────────────────────┘
+                               │
+┌──────────────────────────────▼──────────────────────────────────┐
+│                      FRONTEND (Vue 3)                           │
+│  Dashboard: real-time stats, road status, metro stations        │
+│  Navigation: Leaflet map + route comparison + AI forecast       │
+│  Roads: per-intersection breakdown with trend indicators        │
+│  Metro: station & train crowd density tables                    │
+│  Analyze: upload video/image for on-demand AI analysis          │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ML Models — The 5-Model Pipeline
+
+### 1. CSRNet (Crowd Scene Recognition Network)
+- **Purpose:** Estimate number of people in metro stations/trains from camera images
+- **Architecture:** VGG16 frontend + dilated convolution backend → density map
+- **Input:** Single image or video (multi-frame sampling)
+- **Output:** `{ humanCount: 44, density: "high" }`
+- **Training notebook:** [`csrnet.ipynb`](csrnet.ipynb)
+
+### 2. YOLOv8-nano (Vehicle Detection)
+- **Purpose:** Count vehicles and estimate road coverage from traffic camera feeds
+- **Architecture:** Ultralytics YOLOv8n, detecting cars, motorcycles, buses, trucks
+- **Input:** Road camera image or video
+- **Output:** `{ vehicleCount: 87, coverage: 38.2%, status: "HEAVY" }`
+- **Training notebook:** [`yuklemeler/car_counter_orderedpipeline.ipynb`](yuklemeler/car_counter_orderedpipeline.ipynb)
+
+### 3. ConvLSTM v2 (Spatiotemporal Congestion Forecasting)
+- **Purpose:** Predict traffic congestion 1-3 hours into the future on a 32×32 city grid
+- **Architecture:** 2-layer ConvLSTM encoder + autoregressive ConvLSTM decoder
+- **Input:** Last 6 hours of grid data (2 channels: density + vehicle count)
+- **Output:** 3 future hourly congestion grids (32×32 each)
+- **Key improvement:** Autoregressive decoder — each prediction step feeds back into the next, producing genuinely different forecasts per hour
+- **Training data:** 4,320 hours (180 days) of synthetic Baku traffic patterns with rush hours, weekends, seasonal variation, and random incidents
+- **Training notebook:** [`yuklemeler/traffik_jam (1).ipynb`](yuklemeler/traffik_jam%20(1).ipynb)
+
+### 4. LightGBM (Decision Engine)
+- **Purpose:** Per-intersection 1-hour congestion forecast using 33 engineered features
+- **Architecture:** Gradient boosted decision trees (500 rounds, MAE: 5.85%, R² = 0.95)
+- **33 Features include:**
+  - Real-time: current vehicle count, coverage ratio
+  - Temporal lags: 5min, 15min, 30min, 1h ago counts + rolling stats
+  - Calendar: hour, day of week, weekend, holiday, month
+  - Node properties: type (road/metro), capacity, lane count
+  - Cross features: rain × peak hour, holiday × hour
+  - Neighbor features: average/max count, trend of adjacent intersections
+  - Historical patterns: weekday/weekend averages, all-time max
+- **Output:** `{ forecast_1h: 64.7%, status: "CONGESTED", trend: "increasing" }`
+- **Training notebook:** [`yuklemeler/car_counter_orderedpipeline.ipynb`](yuklemeler/car_counter_orderedpipeline.ipynb) (Cell 8-10)
+
+### 5. A* Multimodal Routing Engine
+- **Purpose:** Find optimal route considering real-time congestion on both roads and metro
+- **Algorithm:** Time-dependent A* with dynamic edge costs
+- **Graph:** 11 road intersections + 5 metro stations + walk connections
+- **Edge cost factors:**
+  - Road: base time × congestion multiplier (1.0x–2.5x based on LightGBM forecast)
+  - Metro: base time × crowd multiplier (1.0x–1.6x based on metro density)
+  - Walk: fixed time (unaffected by traffic)
+  - Trend adjustment: +0.2 if increasing, -0.15 if decreasing
+- **Route options generated:**
+  - **Drive Now** — road-only route with current traffic
+  - **Metro Now** — walk + metro + walk with current crowd levels
+  - **Wait 15min + Metro** — if metro is crowded but trend is decreasing
+  - **Wait 20min + Drive** — if roads are congested but easing
+- **Output:** Ranked routes with time, distance, risk (0-10), reliability %, and human-readable reasoning
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | Vue 3, Vite, PrimeVue, Pinia, Leaflet.js (OpenStreetMap), PWA |
+| **Backend** | Node.js, Express.js, Prisma ORM |
+| **Database** | PostgreSQL (Supabase) |
+| **ML Runtime** | Python 3.12, PyTorch, LightGBM, OpenCV, Ultralytics |
+| **ML Integration** | Child process (stdin/stdout JSON) — no separate ML server |
+| **Auth** | JWT + bcrypt, cookie-based sessions |
+| **Deployment** | DigitalOcean VPS, Nginx, PM2 |
 
 ---
 
 ## Repository Structure
 
 ```
-bakimove/
-├── cv/                   # Computer vision module (YOLOv8 inference pipeline)
-│   ├── detector.py       # Main detection class
-│   ├── counter.py        # Person counting and density estimation
-│   ├── stream.py         # Camera stream handler (RTSP / mock)
-│   └── zones/            # Zone configs for wagons, buses, waiting areas
-├── scraper/              # Web scraper — external context engine
-│   ├── scraper.py        # Main scraper orchestrator
-│   ├── sources/          # Per-source scrapers (weather, events, calendar)
-│   ├── scheduler.py      # Cron-based scrape scheduling
-│   └── data/             # Cached scraped data
-├── ml/                   # ML prediction framework
-│   ├── model.py          # Congestion predictor (inference)
-│   ├── travel_time.py    # Travel time prediction between nodes
-│   ├── train.py          # Training script (all models)
-│   ├── features.py       # Feature engineering (incl. scraper features)
-│   └── data/             # Synthetic + scraped training data
-├── api/                  # FastAPI backend
-│   ├── main.py           # App entrypoint
-│   ├── routes/           # Route handlers
-│   ├── router.py         # Multi-criteria route planner logic
-│   └── schemas.py        # Pydantic models
-├── frontend/             # React dashboard
+eaglevision/
+├── client/                      # Vue 3 frontend (Vite + PrimeVue)
 │   ├── src/
+│   │   ├── views/
+│   │   │   ├── Dashboard.vue    # Real-time stats dashboard
+│   │   │   ├── Navigation.vue   # Leaflet map + route planner + AI forecast
+│   │   │   ├── Roads.vue        # Per-road traffic breakdown
+│   │   │   ├── Metro.vue        # Station & train crowd tables
+│   │   │   ├── Analyze.vue      # Upload video/image for AI analysis
+│   │   │   ├── Signin.vue       # Authentication
+│   │   │   └── Signup.vue       # Registration
+│   │   ├── stores/auth.js       # Pinia auth store
+│   │   ├── api/index.js         # Axios API client
+│   │   └── router/index.js      # Vue Router with auth guards
 │   └── public/
-├── data/                 # Static metro + bus network data
-│   ├── stations.json     # Station list with coordinates
-│   ├── network.json      # Line topology + bus routes
-│   └── bus_routes.json   # Bus network data
-├── docs/                 # Project documentation
-└── docker-compose.yml    # Full stack local setup
+│       └── logo.jpeg            # EagleVision logo
+│
+├── server/                      # Node.js backend (Express)
+│   ├── ml/                      # ML models and prediction scripts
+│   │   ├── predict.py           # CSRNet crowd density (function-based)
+│   │   ├── predict_traffic.py   # YOLO vehicle detection (function-based)
+│   │   ├── predict_congestion.py # ConvLSTM 3h forecast + grid status
+│   │   ├── navigation_engine.py # Full pipeline: DataFusion + LightGBM + A* Router
+│   │   ├── model.py             # CSRNet architecture definition
+│   │   ├── model.pth            # CSRNet trained weights
+│   │   ├── convlstm_model_v2.pth # ConvLSTM v2 trained weights
+│   │   ├── yolov8n.pt           # YOLOv8-nano weights
+│   │   ├── lightgbm_congestion.txt # LightGBM model
+│   │   ├── lgb_features.pkl     # LightGBM feature list
+│   │   ├── baku_grid_data_v2.npy # 4320h traffic grid (2ch, 32×32)
+│   │   └── road_mask.npy        # Baku road network mask
+│   ├── src/
+│   │   ├── controllers/         # Request handlers
+│   │   ├── routes/              # API route definitions
+│   │   ├── services/            # Business logic + ML integration
+│   │   └── middleware/          # Auth + error handling
+│   ├── prisma/
+│   │   ├── schema.prisma        # Database schema (User, Station, Train, Road)
+│   │   └── seed.js              # Seed data (18 Baku metro stations, 5 trains)
+│   └── server.js                # Entry point
+│
+├── yuklemeler/                  # Training notebooks and data
+│   ├── car_counter_orderedpipeline.ipynb  # YOLO + LightGBM + DataFusion + Routing
+│   ├── traffik_jam (1).ipynb              # ConvLSTM v2 training
+│   ├── traffic_convlstm_v2/              # ConvLSTM v2 model + data
+│   └── traffic_project/                   # Grid data + road mask + visualizations
+│
+├── csrnet.ipynb                 # CSRNet training notebook
+├── nixpacks.toml                # Railway deployment config
+├── railway.json                 # Railway deployment spec
+├── render.yaml                  # Render deployment spec
+└── requirements.txt             # Python dependencies
 ```
+
+---
+
+## API Endpoints
+
+### Navigation (Full AI Pipeline)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/nav/status` | All intersection statuses (LightGBM forecast) |
+| `GET` | `/api/nav/forecast` | Per-node 1h congestion forecast with trends |
+| `GET` | `/api/nav/route?start=X&end=Y` | Multimodal route comparison (drive vs metro) |
+
+### Congestion (ConvLSTM Grid)
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/congestion/status` | Current grid congestion status |
+| `GET` | `/api/congestion/forecast` | 3-hour prediction from ConvLSTM v2 |
+
+### Metro & Roads
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/stations` | All metro stations with crowd data |
+| `GET` | `/api/trains` | All trains with current station |
+| `GET` | `/api/roads` | All roads with traffic data |
+| `POST` | `/api/stations/analyze` | Upload image/video for metro crowd analysis (CSRNet) |
+| `POST` | `/api/trains/analyze` | Upload image/video for train analysis |
+| `POST` | `/api/roads/analyze` | Upload image/video for traffic analysis (YOLO) |
+
+### Auth
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/auth/signup` | Create account |
+| `POST` | `/api/auth/signin` | Sign in (returns JWT cookie) |
+| `POST` | `/api/auth/signout` | Sign out |
 
 ---
 
 ## Quick Start
 
 ### Prerequisites
+- Node.js 18+
+- Python 3.10+
+- PostgreSQL (or Supabase account)
 
-- Python 3.11+
-- Node.js 20+
-- Docker + Docker Compose (optional but recommended)
-
-### Option A — Docker (recommended)
+### Installation
 
 ```bash
-git clone https://github.com/your-team/bakimove
-cd bakimove
-docker-compose up
-```
+git clone https://github.com/kanangoylarov/eaglevision.git
+cd eaglevision
 
-Frontend: http://localhost:3000  
-API: http://localhost:8000  
-API docs: http://localhost:8000/docs
+# Python virtual environment
+python3 -m venv venv
+source venv/bin/activate
+pip install torch torchvision lightgbm scikit-learn scipy numpy opencv-python-headless pillow flask joblib pandas ultralytics
 
-### Option B — Manual
-
-**Backend:**
-```bash
-cd api
-python -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-uvicorn main:app --reload --port 8000
-```
-
-**CV module (mock mode):**
-```bash
-cd cv
-pip install -r requirements.txt
-python stream.py --mock --station "28 May"
-```
-
-**ML model:**
-```bash
-cd ml
-python train.py          # generates model.pkl from synthetic data
-python model.py --demo   # runs inference demo
-```
-
-**Scraper:**
-```bash
-cd scraper
-pip install -r requirements.txt
-python scraper.py --once          # single scrape run
-python scheduler.py               # continuous scheduled scraping
-```
-
-**Frontend:**
-```bash
-cd frontend
+# Server dependencies
+cd server
 npm install
-npm run dev
+cp .env.example .env   # Edit with your DB credentials
+npx prisma generate
+npx prisma db push
+node prisma/seed.js     # Seed 18 metro stations + 5 trains
+cd ..
+
+# Client dependencies
+cd client
+npm install
+cd ..
 ```
+
+### Environment Variables
+
+Create `server/.env`:
+```env
+DATABASE_URL="postgresql://user:password@host:5432/dbname"
+DIRECT_URL="postgresql://user:password@host:5432/dbname"
+JWT_SECRET="your-secret-key"
+PORT=3000
+PYTHON_PATH="/path/to/venv/bin/python"
+```
+
+### Run (Development)
+
+```bash
+# Terminal 1 — Backend
+cd server && npm run dev
+
+# Terminal 2 — Frontend
+cd client && npm run dev
+```
+
+Open **http://localhost:5173**
+
+### Run (Production)
+
+```bash
+cd client && npm run build
+cd ../server && node server.js
+```
+
+The Express server serves both the API and the built Vue frontend.
 
 ---
 
-## Environment Variables
+## Deployment
 
-Create a `.env` file at the project root:
+The project is deployed on a DigitalOcean VPS with:
+- **Nginx** as reverse proxy (port 80 → localhost:3000)
+- **PM2** for process management with auto-restart
+- **Python venv** for ML dependencies on the server
 
-```env
-# API
-API_PORT=8000
-API_HOST=0.0.0.0
+Alternative deployment configs are included for:
+- **Railway** (`nixpacks.toml`, `railway.json`)
+- **Render** (`render.yaml`)
 
-# CV
-CV_MOCK_MODE=true           # Set false to use real RTSP streams
-CV_CONFIDENCE_THRESHOLD=0.45
-CV_MODEL_PATH=./cv/weights/yolov8n.pt
+---
 
-# ML
-ML_MODEL_PATH=./ml/model.pkl
-ML_RETRAIN_ON_START=false
+## Training the Models
 
-# Scraper
-SCRAPER_WEATHER_API_KEY=         # OpenWeatherMap API key (optional for mock)
-SCRAPER_EVENTS_URL=              # Events calendar endpoint
-SCRAPER_INTERVAL_MINUTES=15      # Scrape frequency
+All training notebooks are designed for **Google Colab** with GPU:
 
-# Data
-DATA_PATH=./data
-```
+| Notebook | Model | Dataset | Epochs |
+|----------|-------|---------|--------|
+| `csrnet.ipynb` | CSRNet | ShanghaiTech Part A | Custom |
+| `yuklemeler/traffik_jam (1).ipynb` | ConvLSTM v2 | 4,320h synthetic grid | 80 |
+| `yuklemeler/car_counter_orderedpipeline.ipynb` | LightGBM + YOLO | 50K synthetic samples | 500 rounds |
+
+The synthetic data in `baku_grid_data_v2.npy` models realistic Baku traffic:
+- Rush hours (07-09, 17-19): high congestion
+- Night (22-05): minimal traffic
+- Weekends: 50-70% of weekday levels
+- Random incidents: 5% chance of localized spikes
+- Seasonal variation: summer -15%, autumn +10%
+
+---
+
+## Key Design Decisions
+
+1. **No separate ML server** — All ML models run as Python functions via `child_process`, eliminating the need for Flask/FastAPI and simplifying deployment.
+
+2. **Multimodal routing** — The A* router considers both road congestion AND metro crowd levels simultaneously, recommending "wait and take metro later" when data supports it.
+
+3. **Autoregressive ConvLSTM** — v2 model uses a decoder cell that feeds predictions back as input, producing genuinely different forecasts for each future hour (unlike v1 which repeated the same output).
+
+4. **33-feature LightGBM** — Goes beyond simple density readings by incorporating temporal lags, neighbor effects, calendar patterns, and cross-features for robust per-intersection forecasting.
+
+5. **30-second auto-refresh** — All pages poll for updated data every 30 seconds, reflecting changing conditions throughout the day.
 
 ---
 
 ## Team
 
-| Name | Role | Contact |
-|------|------|---------|
-| TBD | CV / ML Lead | — |
-| TBD | Backend Lead | — |
-| TBD | Frontend Lead | — |
-| TBD | Data / Research | — |
-
----
-
-## Documentation Index
-
-| Document | Purpose |
-|----------|---------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | System design and component relationships |
-| [DATA_SOURCES.md](./DATA_SOURCES.md) | Data availability, sourcing strategy, mock data |
-| [ML_MODEL.md](./ML_MODEL.md) | Model design, features, training, evaluation |
-| [CV_MODULE.md](./CV_MODULE.md) | Computer vision pipeline specification |
-| [API_SPEC.md](./API_SPEC.md) | Internal API contracts between all modules |
-| [CONTRIBUTING.md](./CONTRIBUTING.md) | Git workflow, code standards, PR process |
-| [TASKS.md](./TASKS.md) | Sprint tasks with ownership and status |
+| Name | Role |
+|------|------|
+| Kanan Goylarov | Full-Stack Developer & ML Engineer |
 
 ---
 
 ## Hackathon Context
 
 - **Event:** Data-Driven Solutions Hackathon 2026
-- **Challenge track:** Urban Mobility / Smart City
-- **Duration:** ~48 hours
-- **Judging criteria:** Data use, technical depth, real-world applicability, demo quality
-
-The demo runs entirely on synthetic data modelled on real Baku Metro ridership patterns. See [DATA_SOURCES.md](./DATA_SOURCES.md) for the sourcing strategy and what a production deployment would require.
+- **Track:** Urban Mobility / Smart City
+- **Focus:** End-to-end ML pipeline from detection to intelligent multimodal routing
