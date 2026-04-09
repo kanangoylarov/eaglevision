@@ -113,12 +113,24 @@ async function submit() {
 }
 </script>
 
+<style scoped>
+.analyze-hero {
+  background: #ffffff;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.08);
+  border-radius: 16px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+</style>
+
 <template>
   <div class="container">
-    <h1 class="page-title">Analyze</h1>
-    <p class="muted" style="margin-top:-.5rem;">Upload footage for AI analysis</p>
+    <div class="analyze-hero">
+      <h1 class="page-title" style="margin:0;">Analyze</h1>
+      <p class="muted" style="margin:.5rem 0 0 0; font-size:.95rem;">Upload footage for AI analysis</p>
+    </div>
 
-    <Card style="margin-top:1rem;">
+    <Card>
       <template #content>
         <div style="display:flex; flex-direction:column; gap:1rem;">
           <SelectButton v-model="target" :options="targetOptions" optionLabel="label" optionValue="value" />

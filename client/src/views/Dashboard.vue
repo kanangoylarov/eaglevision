@@ -99,8 +99,10 @@ function forecastColor(pct) {
 
 <template>
   <div class="container">
-    <h1 class="page-title">Dashboard</h1>
-    <p class="muted" style="margin-top:-.5rem;">Real-time metro & traffic monitoring (LightGBM powered)</p>
+    <div class="dash-hero">
+      <h1 class="page-title" style="margin:0;">Dashboard</h1>
+      <p class="muted" style="margin:.5rem 0 0 0; font-size:.95rem;">Real-time metro & traffic monitoring (LightGBM powered)</p>
+    </div>
 
     <div v-if="loading" style="display:grid; place-items:center; padding:3rem;">
       <ProgressSpinner />
@@ -111,7 +113,7 @@ function forecastColor(pct) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#0ea5e9;">{{ stations.length }}</div>
+              <div class="value" style="color:var(--accent);">{{ stations.length }}</div>
               <div class="label"><i class="pi pi-map-marker" /> Metro Stations</div>
             </div>
           </template>
@@ -119,7 +121,7 @@ function forecastColor(pct) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#a78bfa;">{{ roadNodes.length }}</div>
+              <div class="value" style="color:var(--accent-2);">{{ roadNodes.length }}</div>
               <div class="label"><i class="pi pi-car" /> Intersections Monitored</div>
             </div>
           </template>
@@ -127,7 +129,7 @@ function forecastColor(pct) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#34d399;">{{ totalPeople }}</div>
+              <div class="value" style="color:var(--accent);">{{ totalPeople }}</div>
               <div class="label"><i class="pi pi-users" /> People in Metro</div>
             </div>
           </template>
@@ -135,7 +137,7 @@ function forecastColor(pct) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#f87171;">{{ congestedRoadCount }}</div>
+              <div class="value" style="color:#f97316;">{{ congestedRoadCount }}</div>
               <div class="label"><i class="pi pi-exclamation-triangle" /> Congested Roads</div>
             </div>
           </template>
@@ -143,7 +145,7 @@ function forecastColor(pct) {
       </div>
 
       <!-- Road status from LightGBM -->
-      <h2 style="margin-top:2rem; font-size:1.2rem;">Road Status (AI Forecast)</h2>
+      <h2 class="section-title" style="margin-top:2rem;">Road Status (AI Forecast)</h2>
       <div class="road-list">
         <Card v-for="road in roadSummaries" :key="road.name">
           <template #content>
@@ -167,7 +169,7 @@ function forecastColor(pct) {
       </div>
 
       <!-- Per-intersection detail -->
-      <h2 style="margin-top:2rem; font-size:1.2rem;">Intersections</h2>
+      <h2 class="section-title" style="margin-top:2rem;">Intersections</h2>
       <div class="station-grid">
         <Card v-for="node in roadNodes" :key="node.node_id">
           <template #content>
@@ -188,7 +190,7 @@ function forecastColor(pct) {
       </div>
 
       <!-- Metro stations -->
-      <h2 style="margin-top:2rem; font-size:1.2rem;">Metro Stations</h2>
+      <h2 class="section-title" style="margin-top:2rem;">Metro Stations</h2>
       <div class="station-grid">
         <Card v-for="station in stations" :key="station.id">
           <template #content>

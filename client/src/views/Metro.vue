@@ -48,12 +48,14 @@ onUnmounted(() => {
 
 <template>
   <div class="container">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-      <div>
-        <h1 class="page-title" style="margin:0;">Metro</h1>
-        <p class="muted" style="margin:0;">Stations & trains crowd density</p>
+    <div class="metro-hero">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h1 class="page-title" style="margin:0;">Metro</h1>
+          <p class="muted" style="margin:.5rem 0 0 0; font-size:.95rem;">Stations & trains crowd density</p>
+        </div>
+        <Button icon="pi pi-refresh" label="Refresh" @click="load" :loading="loading" outlined />
       </div>
-      <Button icon="pi pi-refresh" label="Refresh" @click="load" :loading="loading" outlined />
     </div>
 
     <TabView>

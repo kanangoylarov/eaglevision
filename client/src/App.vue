@@ -32,26 +32,30 @@ const isAuthPage = computed(() => ["/signin", "/signup"].includes(route.path));
 </script>
 
 <template>
-  <div class="app-shell dark">
-    <Menubar v-if="auth.isAuthenticated && !isAuthPage" :model="items" class="border-noround">
-      <template #start>
-        <div class="brand" style="margin-right: 1rem;">
-          <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" />
-          <span class="hidden md:inline">EagleVision</span>
-        </div>
-      </template>
-      <template #end>
-        <div style="display:flex; align-items:center; gap:.5rem;">
-          <span class="muted" style="font-size:.85rem;" v-if="auth.user">
-            {{ auth.user.firstName }}
-          </span>
-          <Button icon="pi pi-sign-out" text rounded severity="secondary" @click="logout" aria-label="Sign out" />
-        </div>
-      </template>
-    </Menubar>
+  <div class="app-shell">
+    <div v-if="auth.isAuthenticated && !isAuthPage" class="topbar">
+      <Menubar :model="items" class="border-noround">
+        <template #start>
+          <div class="brand" style="margin-right: 1rem;">
+            <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" />
+            <span class="hidden md:inline">EagleVision</span>
+          </div>
+        </template>
+        <template #end>
+          <div style="display:flex; align-items:center; gap:.5rem;">
+            <span class="muted" style="font-size:.85rem;" v-if="auth.user">
+              {{ auth.user.firstName }}
+            </span>
+            <Button icon="pi pi-sign-out" text rounded severity="secondary" @click="logout" aria-label="Sign out" />
+          </div>
+        </template>
+      </Menubar>
+    </div>
 
     <main style="flex:1;">
-      <router-view />
+      <transition name="page-fade">
+        <router-view :key="$route.path" />
+      </transition>
     </main>
 
     <Toast position="top-right" />

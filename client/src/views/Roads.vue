@@ -91,12 +91,14 @@ onUnmounted(() => {
 
 <template>
   <div class="container">
-    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:1rem;">
-      <div>
-        <h1 class="page-title" style="margin:0;">Roads</h1>
-        <p class="muted" style="margin:0;">Live traffic from AI pipeline (LightGBM + ConvLSTM)</p>
+    <div class="roads-hero">
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <div>
+          <h1 class="page-title" style="margin:0;">Roads</h1>
+          <p class="muted" style="margin:.5rem 0 0 0; font-size:.95rem;">Live traffic from AI pipeline (LightGBM + ConvLSTM)</p>
+        </div>
+        <Button icon="pi pi-refresh" label="Refresh" @click="load" :loading="loading" outlined />
       </div>
-      <Button icon="pi pi-refresh" label="Refresh" @click="load" :loading="loading" outlined />
     </div>
 
     <div class="road-list">
@@ -137,7 +139,7 @@ onUnmounted(() => {
 .road-list { display: flex; flex-direction: column; gap: .75rem; }
 .int-chip {
   display: flex; align-items: center; gap: .3rem;
-  padding: .15rem .4rem; background: rgba(255,255,255,0.03);
-  border-radius: 4px; border: 1px solid rgba(255,255,255,0.06);
+  padding: .15rem .4rem; background: rgba(29, 78, 216, 0.08);
+  border-radius: 4px; border: 1px solid rgba(29, 78, 216, 0.16);
 }
 </style>

@@ -82,7 +82,7 @@ function modeIcon(m) {
 
 function initMap() {
   map = L.map("baku-map", { center: [40.3990, 49.8570], zoom: 13 });
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png", {
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
     attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 19,
   }).addTo(map);
   markersLayer = L.layerGroup().addTo(map);
@@ -220,17 +220,17 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
   <div class="nav-page">
     <div class="map-container">
       <div id="baku-map"></div>
-      <div class="map-legend">
+      <div class="map-legend" style="background: rgba(255, 255, 255, 0.9); border: 1px solid rgba(0, 0, 0, 0.1); color: var(--text);">
         <span><span class="dot" style="background:#22c55e;"></span> Free</span>
         <span><span class="dot" style="background:#4ade80;"></span> Normal</span>
         <span><span class="dot" style="background:#f97316;"></span> Heavy</span>
         <span><span class="dot" style="background:#ef4444;"></span> Congested</span>
-        <span><span class="dot" style="background:#60a5fa;"></span> Metro</span>
+        <span><span class="dot" style="background:var(--accent);"></span> Metro</span>
       </div>
     </div>
 
     <div class="side-panel">
-      <h2 style="margin:0 0 .5rem 0; font-size:1.3rem;">Navigation</h2>
+      <h2 style="margin:0 0 .5rem 0; font-size:1.3rem; font-family:'Manrope', sans-serif; font-weight:700;">Navigation</h2>
       <p class="muted" style="margin:0 0 1rem 0; font-size:.85rem;">AI-powered multimodal routing</p>
 
       <!-- Route planner -->
@@ -257,7 +257,7 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
                   <span class="route-label">{{ route.label }}</span>
                   <Tag v-if="route.rank === 1" value="Best" severity="success" style="font-size:.6rem;" />
                 </div>
-                <span class="route-time-badge" :class="{ 'default-badge': route.rank !== 1 }">{{ route.totalTime }} min</span>
+                <span class="route-time-badge" :class="{ 'default-badge': route.rank !== 1 }" style="background:var(--accent); color:white; padding:0.25rem 0.75rem; border-radius:999px; font-size:.75rem; font-weight:600;">{{ route.totalTime }} min</span>
               </div>
               <div style="display:flex; gap:.75rem; margin-top:.3rem; font-size:.8rem;" class="muted">
                 <span>{{ route.totalDistance }} km</span>
@@ -288,7 +288,7 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
             <span style="font-weight:600; font-size:.95rem;">Live Traffic</span>
             <Button icon="pi pi-refresh" text rounded size="small" @click="loadStatus" :loading="loadingStatus" />
           </div>
-          <div v-if="loadingStatus" style="text-align:center; padding:1rem;"><ProgressSpinner style="width:30px; height:30px;" /></div>
+          <div v-if="loadingStatus" style="text-align:center; padding:1rem;"><ProgressSpinner style="width:24px; height:24px;" strokeWidth="3" /></div>
           <div v-else-if="status?.nodes" class="status-list">
             <div v-for="n in status.nodes.filter(n => n.mode === 'road')" :key="n.node_id" class="status-row">
               <span style="font-size:.8rem;">{{ n.name }}</span>
