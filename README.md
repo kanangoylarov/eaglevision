@@ -117,17 +117,37 @@ EagleVision is a **full-stack AI platform** that unifies road traffic analysis a
 
 ---
 
-## Tech Stack
+## Tech Stack — PEVN Architecture
+
+Built on the **PEVN stack** (PostgreSQL + Express + Vue + Node.js):
+
+```
+┌──────────────┐    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+│  PostgreSQL  │◄──►│   Express    │◄──►│    Vue 3     │    │    Node.js   │
+│  (Supabase)  │    │   (REST API) │    │  (Frontend)  │    │  (Runtime)   │
+│              │    │              │    │              │    │              │
+│  • Users     │    │  • Routes    │    │  • Dashboard │    │  • PM2       │
+│  • Stations  │    │  • Prisma    │    │  • Navigate  │    │  • Vite      │
+│  • Trains    │    │  • Auth/JWT  │    │  • Leaflet   │    │  • Nodemon   │
+│  • Roads     │    │  • ML bridge │    │  • PrimeVue  │    │  • PWA       │
+└──────────────┘    └──────┬───────┘    └──────────────┘    └──────────────┘
+                           │
+                    ┌──────▼───────┐
+                    │  Python ML   │
+                    │  (5 models)  │
+                    │  child_proc  │
+                    └──────────────┘
+```
 
 | Layer | Technology |
 |-------|-----------|
-| **Frontend** | Vue 3, Vite, PrimeVue, Pinia, Leaflet.js (OpenStreetMap), PWA |
-| **Backend** | Node.js, Express.js, Prisma ORM |
-| **Database** | PostgreSQL (Supabase) |
+| **P** — PostgreSQL | Supabase-hosted, Prisma ORM, 4 tables (User, Station, Train, Road) |
+| **E** — Express.js | REST API, CORS, cookie-parser, multer (file uploads), error handling |
+| **V** — Vue 3 | Vite, Composition API, PrimeVue UI, Pinia state, Leaflet.js maps, PWA |
+| **N** — Node.js | Runtime for backend, child_process bridge to Python ML models |
 | **ML Runtime** | Python 3.12, PyTorch, LightGBM, OpenCV, Ultralytics |
-| **ML Integration** | Child process (stdin/stdout JSON) — no separate ML server |
-| **Auth** | JWT + bcrypt, cookie-based sessions |
-| **Deployment** | DigitalOcean VPS, Nginx, PM2 |
+| **Auth** | JWT + bcrypt, httpOnly cookie sessions |
+| **Deployment** | DigitalOcean VPS, Nginx reverse proxy, PM2 process manager |
 
 ---
 
