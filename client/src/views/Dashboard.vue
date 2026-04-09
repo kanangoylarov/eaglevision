@@ -6,60 +6,28 @@ import Tag from "primevue/tag";
 import ProgressSpinner from "primevue/progressspinner";
 import ProgressBar from "primevue/progressbar";
 
-const DISPLAY_NAMES = {
-  "Neftchilar/Nizami": "Sahil area",
-  "Neftchilar/H.Aliyev": "Bayil road",
-  "Neftchilar/Heydar": "Boulevard",
-  "Babek/Nizami": "Memar Ajami",
-  "Babek/H.Aliyev": "Old City area",
-  "Babek/Heydar": "Hazi Aslanov rd.",
-  "Tbilisi/Nizami": "20 January area",
-  "Tbilisi/H.Aliyev": "Narimanov area",
-  "Bunyadov/Nizami": "Koroglu area",
-  "Bunyadov/H.Aliyev": "Gara Garayev area",
-  "Bunyadov/Heydar": "Hazi Aslanov m.",
-};
-
-const ROAD_NAMES = {
-  "Neftchilar Ave": "Neftchilar Ave",
-  "Babek Ave": "Babek Ave",
-  "Tbilisi Ave": "Tbilisi Ave",
-  "Z.Bunyadov Ave": "Z.Bunyadov Ave",
-  "Nizami St": "M.Mushfig St",
-  "H.Aliyev St": "A.Aliyev St",
-  "Heydar Aliyev Ave": "H.Aliyev Ave",
-};
-
-// Which road each intersection sits on (primary road)
-const INTERSECTION_ROADS = {
-  "Neftchilar/Nizami": "Neftchilar Ave",
-  "Neftchilar/H.Aliyev": "Neftchilar Ave",
-  "Neftchilar/Heydar": "Neftchilar Ave",
-  "Babek/Nizami": "Babek Ave",
-  "Babek/H.Aliyev": "Babek Ave",
-  "Babek/Heydar": "Babek Ave",
-  "Tbilisi/Nizami": "Tbilisi Ave",
-  "Tbilisi/H.Aliyev": "Tbilisi Ave",
-  "Bunyadov/Nizami": "Z.Bunyadov Ave",
-  "Bunyadov/H.Aliyev": "Z.Bunyadov Ave",
-  "Bunyadov/Heydar": "Z.Bunyadov Ave",
+const NODE_ROADS = {
+  neft_nizami: "Neftchilar Ave", neft_aliyev: "Neftchilar Ave", neft_heydar: "Neftchilar Ave",
+  babek_nizami: "Babek Ave", babek_aliyev: "Babek Ave", babek_heydar: "Babek Ave",
+  tbilisi_nizami: "Tbilisi Ave", tbilisi_aliyev: "Tbilisi Ave",
+  bunyadov_nizami: "Z.Bunyadov Ave", bunyadov_aliyev: "Z.Bunyadov Ave", bunyadov_heydar: "Z.Bunyadov Ave",
 };
 
 const trains = ref([]);
 const stations = ref([]);
-const congestion = ref(null);
+const navStatus = ref(null);
 const loading = ref(true);
 
 async function loadAll() {
   try {
-    const [t, s, c] = await Promise.all([
+    const [t, s, n] = await Promise.all([
       api.get("/trains"),
       api.get("/stations"),
-      api.get("/congestion/status"),
+      api.get("/nav/status"),
     ]);
     trains.value = t.data;
     stations.value = s.data;
-    congestion.value = c.data;
+    navStatus.value = n.data;
   } finally {
     loading.value = false;
   }
@@ -74,6 +42,10 @@ onUnmounted(() => {
   if (refreshInterval) clearInterval(refreshInterval);
 });
 
+const roadNodes = computed(() =>
+  (navStatus.value?.nodes || []).filter((n) => n.mode === "road")
+);
+
 const totalPeople = computed(() =>
   stations.value.reduce((acc, s) => acc + (s.humanCount || 0), 0)
 );
@@ -81,26 +53,21 @@ const highDensityStations = computed(() =>
   stations.value.filter((s) => (s.aiResult || "").includes("high")).length
 );
 
-// Aggregate intersections into road-level summaries
 const roadSummaries = computed(() => {
-  if (!congestion.value?.intersections) return [];
   const roadMap = {};
-  for (const item of congestion.value.intersections) {
-    const road = INTERSECTION_ROADS[item.intersection] || "Unknown";
-    if (!roadMap[road]) {
-      roadMap[road] = { name: ROAD_NAMES[road] || road, values: [], statuses: [] };
-    }
-    roadMap[road].values.push(item.congestion);
-    roadMap[road].statuses.push(item.status);
+  for (const node of roadNodes.value) {
+    const road = NODE_ROADS[node.node_id] || "Unknown";
+    if (!roadMap[road]) roadMap[road] = { name: road, nodes: [] };
+    roadMap[road].nodes.push(node);
   }
   return Object.values(roadMap).map((r) => {
-    const avg = r.values.reduce((a, b) => a + b, 0) / r.values.length;
+    const avgForecast = r.nodes.reduce((a, n) => a + n.forecast_1h, 0) / r.nodes.length;
     let status;
-    if (avg > 0.55) status = "CONGESTED";
-    else if (avg > 0.35) status = "HEAVY";
-    else if (avg > 0.12) status = "NORMAL";
+    if (avgForecast > 70) status = "CONGESTED";
+    else if (avgForecast > 50) status = "HEAVY";
+    else if (avgForecast > 25) status = "NORMAL";
     else status = "FREE_FLOW";
-    return { name: r.name, congestion: avg, status };
+    return { name: r.name, forecast: avgForecast, status, nodes: r.nodes };
   });
 });
 
@@ -108,14 +75,10 @@ const congestedRoadCount = computed(() =>
   roadSummaries.value.filter((r) => r.status === "CONGESTED" || r.status === "HEAVY").length
 );
 
-const totalIntersections = computed(() =>
-  congestion.value?.intersections?.length || 0
-);
-
-function statusSeverity(status) {
-  if (status === "CONGESTED") return "danger";
-  if (status === "HEAVY") return "warn";
-  if (status === "NORMAL") return "info";
+function statusSeverity(s) {
+  if (s === "CONGESTED") return "danger";
+  if (s === "HEAVY") return "warn";
+  if (s === "NORMAL") return "info";
   return "success";
 }
 
@@ -126,10 +89,10 @@ function densitySeverity(ai) {
   return "success";
 }
 
-function coverageColor(c) {
-  if (c > 55) return "#ef4444";
-  if (c > 35) return "#f97316";
-  if (c > 12) return "#eab308";
+function forecastColor(pct) {
+  if (pct > 70) return "#ef4444";
+  if (pct > 50) return "#f97316";
+  if (pct > 25) return "#eab308";
   return "#22c55e";
 }
 </script>
@@ -137,14 +100,13 @@ function coverageColor(c) {
 <template>
   <div class="container">
     <h1 class="page-title">Dashboard</h1>
-    <p class="muted" style="margin-top:-.5rem;">Real-time metro & traffic monitoring</p>
+    <p class="muted" style="margin-top:-.5rem;">Real-time metro & traffic monitoring (LightGBM powered)</p>
 
     <div v-if="loading" style="display:grid; place-items:center; padding:3rem;">
       <ProgressSpinner />
     </div>
 
     <div v-else>
-      <!-- Stats -->
       <div class="grid cols-4" style="margin-top:1.5rem;">
         <Card>
           <template #content>
@@ -157,7 +119,7 @@ function coverageColor(c) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#a78bfa;">{{ totalIntersections }}</div>
+              <div class="value" style="color:#a78bfa;">{{ roadNodes.length }}</div>
               <div class="label"><i class="pi pi-car" /> Intersections Monitored</div>
             </div>
           </template>
@@ -173,26 +135,6 @@ function coverageColor(c) {
         <Card>
           <template #content>
             <div class="stat">
-              <div class="value" style="color:#fb923c;">{{ roadSummaries.length }}</div>
-              <div class="label"><i class="pi pi-car" /> Roads Tracked</div>
-            </div>
-          </template>
-        </Card>
-      </div>
-
-      <!-- Alerts row -->
-      <div class="grid cols-2" style="margin-top:1rem;">
-        <Card>
-          <template #content>
-            <div class="stat">
-              <div class="value" style="color:#f87171;">{{ highDensityStations }}</div>
-              <div class="label"><i class="pi pi-exclamation-triangle" /> High Density Stations</div>
-            </div>
-          </template>
-        </Card>
-        <Card>
-          <template #content>
-            <div class="stat">
               <div class="value" style="color:#f87171;">{{ congestedRoadCount }}</div>
               <div class="label"><i class="pi pi-exclamation-triangle" /> Congested Roads</div>
             </div>
@@ -200,22 +142,22 @@ function coverageColor(c) {
         </Card>
       </div>
 
-      <!-- Live road status from grid -->
-      <h2 style="margin-top:2rem; font-size:1.2rem;">Road Status (Live)</h2>
+      <!-- Road status from LightGBM -->
+      <h2 style="margin-top:2rem; font-size:1.2rem;">Road Status (AI Forecast)</h2>
       <div class="road-list">
-        <Card v-for="road in roadSummaries" :key="road.name" class="road-card">
+        <Card v-for="road in roadSummaries" :key="road.name">
           <template #content>
             <div style="display:flex; justify-content:space-between; align-items:center; gap:1rem;">
-              <div style="flex:1; min-width:0;">
+              <div style="flex:1;">
                 <div style="font-weight:600;">{{ road.name }}</div>
                 <div style="display:flex; align-items:center; gap:.5rem; margin-top:.4rem;">
                   <ProgressBar
-                    :value="road.congestion * 100"
+                    :value="road.forecast"
                     :showValue="false"
-                    style="height:6px; flex:1; max-width:140px;"
-                    :pt="{ value: { style: { background: coverageColor(road.congestion * 100) } } }"
+                    style="height:8px; flex:1; max-width:140px;"
+                    :pt="{ value: { style: { background: forecastColor(road.forecast) } } }"
                   />
-                  <span class="muted" style="font-size:.75rem;">{{ (road.congestion * 100).toFixed(1) }}%</span>
+                  <span class="muted" style="font-size:.75rem;">{{ road.forecast.toFixed(1) }}%</span>
                 </div>
               </div>
               <Tag :severity="statusSeverity(road.status)" :value="road.status.replace('_', ' ')" />
@@ -224,26 +166,31 @@ function coverageColor(c) {
         </Card>
       </div>
 
-      <!-- Intersection detail -->
+      <!-- Per-intersection detail -->
       <h2 style="margin-top:2rem; font-size:1.2rem;">Intersections</h2>
-      <div class="station-grid" v-if="congestion">
-        <Card v-for="item in congestion.intersections" :key="item.intersection">
+      <div class="station-grid">
+        <Card v-for="node in roadNodes" :key="node.node_id">
           <template #content>
             <div style="display:flex; justify-content:space-between; align-items:center;">
-              <span style="font-weight:500; font-size:.9rem;">{{ DISPLAY_NAMES[item.intersection] || item.intersection }}</span>
+              <div>
+                <span style="font-weight:500; font-size:.9rem;">{{ node.name }}</span>
+                <div class="muted" style="font-size:.7rem;">
+                  {{ node.trend === 'increasing' ? '↑ increasing' : node.trend === 'decreasing' ? '↓ decreasing' : '→ stable' }}
+                </div>
+              </div>
               <div style="display:flex; align-items:center; gap:.3rem;">
-                <span class="muted" style="font-size:.75rem;">{{ (item.congestion * 100).toFixed(0) }}%</span>
-                <Tag :severity="statusSeverity(item.status)" :value="item.status.replace('_',' ')" style="font-size:.7rem;" />
+                <span class="muted" style="font-size:.75rem;">{{ node.forecast_1h }}%</span>
+                <Tag :severity="statusSeverity(node.status)" :value="node.status.replace('_',' ')" style="font-size:.7rem;" />
               </div>
             </div>
           </template>
         </Card>
       </div>
 
-      <!-- Metro stations quick view -->
+      <!-- Metro stations -->
       <h2 style="margin-top:2rem; font-size:1.2rem;">Metro Stations</h2>
       <div class="station-grid">
-        <Card v-for="station in stations" :key="station.id" class="station-chip">
+        <Card v-for="station in stations" :key="station.id">
           <template #content>
             <div style="display:flex; justify-content:space-between; align-items:center;">
               <span style="font-weight:500;">{{ station.name }}</span>
@@ -257,14 +204,6 @@ function coverageColor(c) {
 </template>
 
 <style scoped>
-.road-list {
-  display: flex;
-  flex-direction: column;
-  gap: .5rem;
-}
-.station-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: .5rem;
-}
+.road-list { display: flex; flex-direction: column; gap: .5rem; }
+.station-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: .5rem; }
 </style>

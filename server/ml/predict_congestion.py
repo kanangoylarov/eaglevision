@@ -42,13 +42,14 @@ class ConvLSTMCell(nn.Module):
 
 
 class TrafficPredictor(nn.Module):
-    def __init__(self, in_ch=5, hid1=64, hid2=32, out_steps=3):
+    def __init__(self, in_ch=2, hid1=64, hid2=32, out_steps=3):
         super().__init__()
         self.hid1, self.hid2 = hid1, hid2
         self.out_steps = out_steps
         self.cell1 = ConvLSTMCell(in_ch, hid1)
         self.cell2 = ConvLSTMCell(hid1, hid2)
         self.output = nn.Conv2d(hid2, 1, kernel_size=1)
+        self.decode_cell = ConvLSTMCell(1, hid2)
 
     def forward(self, x):
         B, T, C, H, W = x.shape
@@ -56,27 +57,35 @@ class TrafficPredictor(nn.Module):
         c1 = torch.zeros_like(h1)
         h2 = torch.zeros(B, self.hid2, H, W, device=x.device)
         c2 = torch.zeros_like(h2)
+
         for t in range(T):
             h1, c1 = self.cell1(x[:, t], h1, c1)
             h2, c2 = self.cell2(h1, h2, c2)
+
+        hd, cd = h2, c2
         preds = []
+        prev_pred = self.output(h2)
+
         for _ in range(self.out_steps):
-            preds.append(self.output(h2).squeeze(1))
+            hd, cd = self.decode_cell(prev_pred, hd, cd)
+            prev_pred = self.output(hd)
+            preds.append(prev_pred.squeeze(1))
+
         return torch.stack(preds, dim=1)
 
 
-# Load model
-model = TrafficPredictor().to(DEVICE)
+# Load v2 model (2-channel, autoregressive decoder)
+model = TrafficPredictor(in_ch=2).to(DEVICE)
 model.load_state_dict(torch.load(
-    os.path.join(ML_DIR, "convlstm_model.pth"),
+    os.path.join(ML_DIR, "convlstm_model_v2.pth"),
     map_location=DEVICE, weights_only=True
 ))
 model.eval()
 
-# Load grid data
-grid_data = np.load(os.path.join(ML_DIR, "baku_grid_data.npy"))  # (720, 5, 32, 32)
-road_mask = np.load(os.path.join(ML_DIR, "road_mask.npy"))       # (32, 32)
-hotspots_arr = np.load(os.path.join(ML_DIR, "hotspots.npy"))     # (11, 2)
+# Load v2 grid data (4320 hours, 2 channels)
+grid_data = np.load(os.path.join(ML_DIR, "baku_grid_data_v2.npy"))  # (4320, 2, 32, 32)
+road_mask = np.load(os.path.join(ML_DIR, "road_mask.npy"))          # (32, 32)
+hotspots_arr = np.load(os.path.join(ML_DIR, "hotspots.npy"))        # (11, 2)
 
 # ─── Graph (intersections + edges) ───
 
@@ -199,34 +208,30 @@ def get_congestion_grid(input_data=None, hour_offset=None):
 
 
 def do_forecast(input_seq=None, hour_offset=None):
-    """Predict next 3 hours of congestion.
-
-    Uses the ConvLSTM model on current-hour input, then blends with the
-    known hourly pattern from the dataset for future hours to produce
-    realistic per-hour variation.
-    """
+    """Predict next 3 hours using ConvLSTM v2 (autoregressive decoder)."""
     from datetime import datetime
 
     current_hour = datetime.now().hour
     if hour_offset is not None:
-        base_idx = max(int(hour_offset), 0)
+        base_idx = max(int(hour_offset), 6)
     else:
-        base_idx = 24 + current_hour  # day 2, current hour
-    base_idx = max(0, min(base_idx, len(grid_data) - 1))
+        base_idx = 24 + current_hour
+    base_idx = max(6, min(base_idx, len(grid_data) - 1))
+
+    # Input: last 6 hours, shape (6, 2, 32, 32)
+    seq = grid_data[base_idx - 6:base_idx]
+    x = torch.tensor(seq).unsqueeze(0).to(DEVICE)  # (1, 6, 2, 32, 32)
+    with torch.no_grad():
+        pred = model(x).cpu().numpy()[0]  # (3, 32, 32) — 3 autoregressive steps
 
     results = []
     for t in range(3):
-        future_idx = min(base_idx + t + 1, len(grid_data) - 1)
-        # Use the actual data for the future hour (realistic hourly pattern)
-        grid = grid_data[future_idx, 0].copy()
-
+        grid = pred[t]
         zones = extract_zones(grid)
         avg_congestion = float(grid[road_mask > 0.3].mean()) if (road_mask > 0.3).any() else 0
 
-        # Per-intersection status
         intersection_statuses = []
         for name, (r, c) in INTERSECTIONS.items():
-            # Read a wider area (5x5) around intersection for realistic avg
             r1, r2 = max(0, r - 2), min(31, r + 3)
             c1, c2 = max(0, c - 2), min(31, c + 3)
             val = float(grid[r1:r2, c1:c2].mean())

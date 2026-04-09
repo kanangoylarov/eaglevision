@@ -91,6 +91,9 @@ body {
   background: linear-gradient(135deg, #0ea5e9, #6366f1);
   display: grid; place-items: center; color: white; font-weight: 800;
 }
+.brand-logo-img {
+  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+}
 
 /* PrimeVue dark mode tweaks */
 html { color-scheme: dark; }

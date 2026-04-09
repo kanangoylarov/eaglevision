@@ -36,7 +36,7 @@ const isAuthPage = computed(() => ["/signin", "/signup"].includes(route.path));
     <Menubar v-if="auth.isAuthenticated && !isAuthPage" :model="items" class="border-noround">
       <template #start>
         <div class="brand" style="margin-right: 1rem;">
-          <div class="brand-logo">E</div>
+          <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" />
           <span class="hidden md:inline">EagleVision</span>
         </div>
       </template>

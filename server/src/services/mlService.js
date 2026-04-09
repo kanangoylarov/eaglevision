@@ -51,7 +51,7 @@ export function predictTrafficVideo(buffer, _filename, samples = 8) {
   return runScript("predict_traffic.py", buffer, ["video", String(samples)]);
 }
 
-// --- Congestion (ConvLSTM) ---
+// --- Congestion (ConvLSTM — legacy grid) ---
 export function getCongestionStatus(params = {}) {
   return runJson("predict_congestion.py", params, ["status"]);
 }
@@ -62,4 +62,17 @@ export function getCongestionForecast(params = {}) {
 
 export function getSmartRoute(start, end, params = {}) {
   return runJson("predict_congestion.py", { start, end, ...params }, ["route"]);
+}
+
+// --- Full Navigation Pipeline (DataFusion + LightGBM + A* Routing) ---
+export function getNavStatus() {
+  return runJson("navigation_engine.py", {}, ["status"]);
+}
+
+export function getNavForecast() {
+  return runJson("navigation_engine.py", {}, ["forecast"]);
+}
+
+export function getNavRoute(start, end) {
+  return runJson("navigation_engine.py", { start, end }, ["route"]);
 }
