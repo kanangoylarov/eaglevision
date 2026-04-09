@@ -1,4 +1,4 @@
-# BakıMove — Metro Intelligence Platform
+# EagleVision — Metro Intelligence Platform
 
 > Real-time passenger congestion detection and ML-powered travel time recommendations for the Bakı Metropoliteni.
 
