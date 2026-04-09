@@ -35,14 +35,14 @@ async function submit() {
       <div style="display:grid; grid-template-columns:1fr; gap:2rem; align-items:start;">
         <div class="auth-intro" style="color:var(--text);">
           <div style="font-size:.95rem; font-weight:600; color:var(--accent); margin-bottom:.5rem; letter-spacing:0.025em; text-transform:uppercase;">Welcome Back</div>
-          <h1 style="font-family:'Manrope', sans-serif; font-size:2.5rem; font-weight:800; margin:0 0 .5rem 0; letter-spacing:-0.025em; line-height:1.1;">Your metro awaits</h1>
+          <h1 style="font-family:'Manrope', sans-serif; font-size:2.5rem; font-weight:800; margin:0 0 .5rem 0; letter-spacing:-0.025em; line-height:1.1;">Your city awaits</h1>
           <p style="font-size:1.125rem; color:var(--muted); margin:0; line-height:1.6;">Real-time traffic & density monitoring powered by AI</p>
         </div>
         <Card class="auth-card" style="max-width:420px; justify-self:start; width:100%;">
           <template #title>
-            <div class="brand">
-              <div class="brand-logo">M</div>
-              <span>Metro Density</span>
+            <div class="brand" style="justify-content:center;">
+              <img src="/logo.jpeg" alt="EagleVision" class="brand-logo-img" style="width:48px;height:48px;" />
+              <span>EagleVision</span>
             </div>
           </template>
           <template #subtitle>Sign in to your account</template>

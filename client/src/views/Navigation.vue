@@ -250,12 +250,19 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
 
           <!-- Route results -->
           <div v-if="routeResult?.routes" style="margin-top:1rem;">
+            <!-- AI Recommendation -->
+            <div v-if="routeResult.recommendation" class="recommendation-box">
+              <i class="pi pi-sparkles" style="margin-right:.4rem;"></i>
+              {{ routeResult.recommendation }}
+            </div>
+
             <div v-for="route in routeResult.routes" :key="route.rank" :class="['route-card', route.rank === 1 ? 'best' : '']" style="margin-bottom:.5rem;">
               <div style="display:flex; justify-content:space-between; align-items:center;">
                 <div style="display:flex; align-items:center; gap:.4rem;">
                   <i :class="route.type === 'multimodal' ? 'pi pi-building' : 'pi pi-car'" style="font-size:.85rem;"></i>
                   <span class="route-label">{{ route.label }}</span>
                   <Tag v-if="route.rank === 1" value="Best" severity="success" style="font-size:.6rem;" />
+                  <Tag v-if="route.departIn > 0" :value="'Depart in ' + route.departIn + 'min'" severity="warn" style="font-size:.55rem;" />
                 </div>
                 <span class="route-time-badge" :class="{ 'default-badge': route.rank !== 1 }" style="background:var(--accent); color:white; padding:0.25rem 0.75rem; border-radius:999px; font-size:.75rem; font-weight:600;">{{ route.totalTime }} min</span>
               </div>
@@ -263,6 +270,10 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
                 <span>{{ route.totalDistance }} km</span>
                 <span>Risk: {{ route.risk }}/10</span>
                 <span>{{ route.reliability }}% reliable</span>
+              </div>
+              <!-- Reason -->
+              <div v-if="route.reason" style="margin-top:.3rem; font-size:.75rem; color:#94a3b8; font-style:italic;">
+                {{ route.reason }}
               </div>
               <!-- Legs for multimodal -->
               <div v-if="route.legs" style="margin-top:.4rem;">
@@ -352,6 +363,11 @@ onUnmounted(() => { if (refreshInterval) clearInterval(refreshInterval); });
 .route-time-badge { background: #3b82f6; color: white; padding: 2px 8px; border-radius: 12px; font-size: .75rem; font-weight: 700; }
 .route-time-badge.default-badge { background: #475569; }
 .leg-row { display: flex; align-items: center; gap: .4rem; padding: .15rem 0; }
+.recommendation-box {
+  padding: .5rem .75rem; margin-bottom: .75rem; border-radius: 8px;
+  background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3);
+  color: #4ade80; font-size: .85rem; font-weight: 500;
+}
 .status-list { display: flex; flex-direction: column; gap: .3rem; }
 .status-row { display: flex; justify-content: space-between; align-items: center; padding: .2rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
 .status-row:last-child { border-bottom: none; }

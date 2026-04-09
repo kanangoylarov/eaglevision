@@ -1,0 +1,22 @@
+[phases.setup]
+nixPkgs = ["python312", "python312Packages.pip"]
+
+[phases.install]
+cmds = [
+  "cd server && npm install",
+  "cd client && npm install",
+  "pip install --prefix /opt/python torch torchvision lightgbm scikit-learn scipy numpy opencv-python-headless pillow flask joblib pandas ultralytics"
+]
+
+[phases.build]
+cmds = [
+  "cd server && npx prisma generate",
+  "cd client && npm run build"
+]
+
+[start]
+cmd = "cd server && node server.js"
+
+[variables]
+PYTHONPATH = "/opt/python/lib/python3.12/site-packages"
+PYTHON_PATH = "python3"
