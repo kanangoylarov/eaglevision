@@ -1,29 +1,25 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Manrope:wght@400;600;700;800&display=swap');
-
 :root {
-  --bg: #f6f8fc;
-  --bg-elevated: #ffffff;
-  --border: #d4ddd4;
-  --text: #1a1a1a;
-  --muted: #6b7280;
-  --accent: #1d4ed8;
-  --accent-2: #be123c;
-  --shadow-soft: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -3px rgba(0,0,0,0.08);
-  --shadow-md: 0 4px 6px rgba(0,0,0,0.07), 0 20px 25px -5px rgba(0,0,0,0.1);
+  --bg: #0b1120;
+  --bg-elevated: #111827;
+  --border: #1f2937;
+  --text: #e5e7eb;
+  --muted: #94a3b8;
+  --accent: #0ea5e9;
 }
 
 * { box-sizing: border-box; }
 html, body, #app { height: 100%; }
 body {
   margin: 0;
-  font-family: "Space Grotesk", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  background: var(--bg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 80% -10%, rgba(14,165,233,0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(99,102,241,0.18), transparent 60%),
+    var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   min-height: 100dvh;
   padding-bottom: env(safe-area-inset-bottom);
-  letter-spacing: -0.03em;
 }
 
 .app-shell {
@@ -34,7 +30,7 @@ body {
 
 .container {
   width: 100%;
-  max-width: 1180px;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 1rem;
 }
@@ -43,80 +39,13 @@ body {
   .container { padding: 2rem; }
 }
 
-.topbar {
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
 .page-title {
-  font-size: 1.875rem;
+  font-size: 1.5rem;
   font-weight: 700;
-  font-family: 'Manrope', sans-serif;
   margin: 0 0 1rem 0;
-  letter-spacing: -0.025em;
-}
-
-.section-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  font-family: 'Manrope', sans-serif;
-  margin: 0;
-  letter-spacing: -0.025em;
 }
 
 .muted { color: var(--muted); }
-
-.dash-hero, .metro-hero, .roads-hero, .analyze-hero {
-  background: #ffffff;
-  box-shadow: var(--shadow-soft);
-  border-radius: 16px;
-  padding: 2rem;
-  margin-bottom: 2rem;
-}
-
-.page-fade-enter-active, .page-fade-leave-active {
-  transition: opacity 220ms ease, transform 220ms ease;
-}
-.page-fade-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.page-fade-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
-
-.stagger {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-.stagger > * {
-  animation: slideInFade 220ms ease forwards;
-}
-.stagger > *:nth-child(1) { animation-delay: 40ms; }
-.stagger > *:nth-child(2) { animation-delay: 80ms; }
-.stagger > *:nth-child(3) { animation-delay: 120ms; }
-.stagger > *:nth-child(4) { animation-delay: 160ms; }
-.stagger > *:nth-child(5) { animation-delay: 200ms; }
-.stagger > *:nth-child(6) { animation-delay: 240ms; }
-.stagger > *:nth-child(7) { animation-delay: 280ms; }
-.stagger > *:nth-child(n+8) { animation-delay: 290ms; }
-
-@keyframes slideInFade {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
 
 .grid {
   display: grid;
@@ -124,14 +53,11 @@ body {
 }
 .grid.cols-2 { grid-template-columns: 1fr; }
 .grid.cols-3 { grid-template-columns: 1fr; }
-.grid.cols-4 { grid-template-columns: 1fr; }
 @media (min-width: 640px) {
   .grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
-  .grid.cols-4 { grid-template-columns: repeat(2, 1fr); }
 }
 @media (min-width: 900px) {
   .grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
-  .grid.cols-4 { grid-template-columns: repeat(4, 1fr); }
 }
 
 .stat {
@@ -156,144 +82,26 @@ body {
   gap: .6rem;
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--text);
 }
 .brand-logo {
   width: 32px; height: 32px; border-radius: 8px;
-  background: var(--accent);
+  background: linear-gradient(135deg, #0ea5e9, #6366f1);
   display: grid; place-items: center; color: white; font-weight: 800;
 }
 .brand-logo-img {
-  width: 36px; height: 36px; border-radius: 50%; object-fit: cover;
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
 }
 
-/* PrimeVue light mode tweaks */
-html { color-scheme: light; }
-
-.p-card {
-  background: var(--bg-elevated) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: var(--shadow-soft) !important;
-}
-
-.p-datatable {
-  background: var(--bg-elevated) !important;
-  color: var(--text) !important;
-}
-.p-datatable .p-datatable-header { background: transparent !important; }
-.p-datatable .p-datatable-thead > tr > th {
-  background: rgba(29, 78, 216, 0.06) !important;
-  color: var(--text) !important;
-  border-color: var(--border) !important;
-  font-weight: 600;
-}
-.p-datatable .p-datatable-tbody > tr {
-  background: var(--bg-elevated) !important;
-  border-color: var(--border) !important;
-}
-.p-datatable .p-datatable-tbody > tr:hover { background: rgba(29, 78, 216, 0.03) !important; }
-.p-datatable .p-datatable-tbody > tr > td { color: var(--text) !important; border-color: var(--border) !important; }
-
-.p-inputtext,
-.p-inputnotempty,
-.p-password .p-password-input {
-  background: var(--bg-elevated) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 12px !important;
-}
-.p-inputtext:focus,
-.p-password .p-password-input:focus {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1) !important;
-}
-
-.p-button {
-  border-radius: 12px !important;
-  font-weight: 600;
-}
-.p-button.p-button-primary { background: var(--accent) !important; border-color: var(--accent) !important; }
-.p-button.p-button-secondary { background: rgba(0, 0, 0, 0.06) !important; color: var(--text) !important; border-color: rgba(0, 0, 0, 0.12) !important; }
-.p-button.p-button-text { color: var(--text) !important; }
-
-.p-tag {
-  border-radius: 999px !important;
-  font-weight: 600;
-  font-size: 0.75rem !important;
-  padding: 0.25rem 0.75rem !important;
-}
-
-.p-tabview .p-tabview-nav {
-  background: transparent !important;
-  border-color: var(--border) !important;
-}
-.p-tabview .p-tabview-nav .p-tabview-nav-link {
-  color: var(--muted) !important;
-}
-.p-tabview .p-tabview-nav .p-tabview-nav-link.p-tabview-nav-link-active {
-  color: var(--accent) !important;
-  border-color: var(--accent) !important;
-}
-
-.p-select,
-.p-select-trigger {
-  background: var(--bg-elevated) !important;
-  color: var(--text) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 12px !important;
-}
-.p-select:focus,
-.p-select-trigger:focus {
-  border-color: var(--accent) !important;
-  box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.1) !important;
-}
-
-.p-divider {
-  border-color: var(--border) !important;
-}
-
-.p-message {
-  border-radius: 12px !important;
-  border: 1px solid var(--border) !important;
-}
-.p-message.p-message-error {
-  background: rgba(239, 68, 68, 0.08) !important;
-  color: #dc2626 !important;
-  border-color: rgba(239, 68, 68, 0.2) !important;
-}
-
-.p-menubar {
-  background: var(--bg-elevated) !important;
-  border-color: var(--border) !important;
-  padding: 0.75rem 2rem !important;
-}
-.p-menubar .p-menuitem-link {
-  color: var(--text) !important;
-  border-radius: 8px !important;
-}
-.p-menubar .p-menuitem-link:hover {
-  background: rgba(29, 78, 216, 0.08) !important;
-  color: var(--accent) !important;
-}
-.p-menubar .p-menuitem-link.p-menuitem-active {
-  background: rgba(29, 78, 216, 0.12) !important;
-  color: var(--accent) !important;
-}
-
-.p-progressbar {
-  background: rgba(29, 78, 216, 0.08) !important;
-  border-radius: 8px !important;
-}
-.p-progressbar .p-progressbar-value { border-radius: 8px !important; }
+/* PrimeVue dark mode tweaks */
+html { color-scheme: dark; }
+.p-card { background: var(--bg-elevated) !important; border: 1px solid var(--border); }
+.p-datatable .p-datatable-header,
+.p-datatable .p-datatable-thead > tr > th,
+.p-datatable .p-datatable-tbody > tr { background: transparent !important; }
 
 /* Hide menubar text on small screens, keep icons */
 @media (max-width: 640px) {
   .p-menubar .p-menubar-root-list .p-menuitem-text { display: none; }
-}
-
-@supports (backdrop-filter: blur(12px)) {
-  .p-menubar {
-    background: rgba(255, 255, 255, 0.7) !important;
-    backdrop-filter: blur(12px) !important;
-  }
 }

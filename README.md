@@ -361,6 +361,7 @@ The synthetic data in `baku_grid_data_v2.npy` models realistic Baku traffic:
 
 | Name | Role |
 |------|------|
+| Fikret Elizade | Full-Stack Developer & Team Lead |
 | Kanan Goylarov | Full-Stack Developer & ML Engineer |
 
 ---
